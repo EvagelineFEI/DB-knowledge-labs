@@ -38,18 +38,19 @@
 task 2要求我们可以实现并发功能：当有写操作（修改 Trie）正在进行时，读操作仍然可以在旧的根节点上进行，即允许多个读操作并发执行，读操作不会因为写操作而阻塞；当有读操作正在进行时，写操作也可以继续执行，写操作不会因为读操作而等待，即写操作不会阻塞读操作。
 
 对于没有写过并发控制的同学（比如我）来说，需要理解实验说明里面下面几个点：
+
 <img src="figures/并发控制实现说明.png" width="40%" height="auto"/>
+
 1. 为什么“But for the concurrent key-value store, the put and delete methods do not have a return value.”
 为啥并发场景下，put和delete没有返回值呢？
 
 2. 如何理解“This requires you to use concurrency primitives to synchronize reads and writes so that no data is lost through the process.” 首先，“concurrency primitives”是什么；其次，data会什么可能“lost”？
-
   2.1. 如果隔离机制做得不好，数据可能会出现脏读：一个Get事务读取了另一个未提交Put事务修改的数据。如果那个未提交的Put事务最终回滚（Rollback），那么Gt读取到的数据就是无效的（“脏”数据），因为它并没有真正被提交到数据库中。
+
   2.2. 如果没有任何同步机制，线程A和线程B可能会同时修改Trie树的同一个节点，导致其中一个线程的修改被另一个线程覆盖，从而丢失数据。
 
 3. 为什么要设计一个“ValueGuard”？
 这个还是比较好理解的。在原始的 Trie 中，Get 操作只返回一个指向值的指针。
-
 但是现在我们是并发情景了，Get线程读的同时，也可能有一个Delete线程在修改；
 这时候，如果Delete线程修改完成，那么它会返回一个新的Tire对象（没错，尽管它是copy-on-write，写的时候复制一份，但是写完后会把副本树用来替换旧的树。）而原本Get线程读取的那个 Trie 节点被删除了，那么Get操作返回的这个指针就会变成悬空指针（dangling pointer），导致访问错误。
 
